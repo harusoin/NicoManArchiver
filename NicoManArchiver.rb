@@ -1,13 +1,15 @@
 require 'selenium-webdriver'
 require 'io/console'
 require 'open-uri'
+require 'optparse'
 
 class NicoManArchiver
     def initialize()
         @driver = Selenium::WebDriver.for :chrome
         @driver.manage.timeouts.implicit_wait = 10
+    end
+    def login(id, pass)
         @driver.get("https://account.nicovideo.jp/login")
-        id, pass = get_loginInfo()
         begin
             element = @driver.find_element(:id, 'input__mailtel')
             element.send_keys(id)
@@ -34,13 +36,6 @@ class NicoManArchiver
         @driver.quit
     end
     private
-    def get_loginInfo
-        puts "login id?"
-        id = STDIN.gets.chomp
-        puts "login password?"
-        pass = STDIN.noecho(&:gets).chomp
-        return id, pass
-    end
     def download_data(url, filePath)
         dirPath = File.dirname(filePath)
         FileUtils.mkdir_p(dirPath) unless FileTest.exist?(dirPath)
@@ -68,10 +63,27 @@ class NicoManArchiver
     end
 end
 
-maintask = NicoManArchiver.new
-ARGV.each_with_index do |arg, i|
-    if arg == "--url" then
-        maintask.get_all(ARGV[i+1])
-    end
+option={}
+OptionParser.new do |opt|
+    opt.on("-u", "--url=VALUE", "VALUE is base download URL"){|v| option[:url] = v}
+    opt.on("-i", "--id=VALUE", "niconico account ID"){|v| option[:id] = v}
+    opt.on("-p", "--password=VALUE", "niconico account password"){|v| option[:password] = v}
+    opt.parse!(ARGV)
 end
-maintask.quit
+
+maintask = NicoManArchiver.new
+if option[:id] == nil then
+    puts "login id?"
+    login_id = STDIN.gets.chomp
+else
+    login_id = option[:id]
+end
+if option[:password] == nil then
+    puts "login password?"
+    login_pass = STDIN.noecho(&:gets).chomp
+else
+    login_pass = option[:password]
+end
+maintask.login(login_id, login_pass)
+maintask.get_all(option[:url]) if option[:url] != nil
+maintask.quit()
